@@ -3,27 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Family Time</title>
+    <title>Family Time Pro</title>
     <style>
-        :root { --primary: #4a90e2; --stop: #ff4757; --bg: #f0f2f5; }
-        body { font-family: -apple-system, system-ui; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
-        h1 { color: #333; font-size: 24px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
-        button { padding: 20px; border: none; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
-        button:active { transform: scale(0.95); }
-        .btn-member { background: #e1e7ff; color: #4a90e2; }
-        .btn-action { background: var(--primary); color: white; width: 100%; margin-top: 10px; }
+        :root { --primary: #4a90e2; --stop: #ff4757; --bg: #f8f9fa; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 450px; box-sizing: border-box; }
+        h1 { color: #333; font-size: 22px; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        button { padding: 18px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-member { background: #f0f4ff; color: var(--primary); border: 1px solid #d0d9ff; }
+        .btn-action { background: var(--primary); color: white; width: 100%; margin-top: 15px; }
         .btn-stop { background: var(--stop) !important; }
-        input { width: 90%; padding: 15px; margin: 10px 0; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; }
-        .log-item { background: #fff; margin-top: 10px; padding: 10px; border-radius: 10px; border-left: 5px solid var(--primary); text-align: left; font-size: 14px; list-style: none; }
+        input { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
+        
+        /* Grouping Styles */
+        .group-header { background: #eee; padding: 8px 15px; border-radius: 8px; margin-top: 20px; font-weight: bold; color: #555; text-align: left; }
+        .user-subgroup { margin-left: 10px; border-left: 3px solid var(--primary); padding-left: 10px; margin-top: 10px; text-align: left; }
+        .log-entry { font-size: 14px; padding: 5px 0; color: #444; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h1>👨‍👩‍👧‍👦 Family Logger</h1>
+    <h1>👨‍👩‍👧‍👦 Family Time Logger</h1>
     
     <div id="setup-step" class="grid">
         <button class="btn-member" onclick="start('Dad')">Dad</button>
@@ -33,53 +36,88 @@
     </div>
 
     <div id="active-step" class="hidden">
-        <h2 id="user-display">Logging for...</h2>
-        <input type="text" id="task" placeholder="What are you doing?">
+        <h2 id="user-display">Hi!</h2>
+        <input type="text" id="task" placeholder="What activity? (e.g. Reading)">
         <button id="main-btn" class="btn-action" onclick="toggleTimer()">Start Timer</button>
-        <button class="btn-action" style="background:#888" onclick="location.reload()">Back</button>
+        <button class="btn-action" style="background:#888" onclick="location.reload()">Cancel</button>
     </div>
 </div>
 
-<ul id="history" style="padding:0; width:100%; max-width:400px;"></ul>
+<div id="history" style="width:100%; max-width:450px;"></div>
 
 <script>
-    let user = "", startT, running = false;
+    let currentUser = "", startTime, isRunning = false;
 
     function start(name) {
-        user = name;
+        currentUser = name;
         document.getElementById('setup-step').classList.add('hidden');
         document.getElementById('active-step').classList.remove('hidden');
-        document.getElementById('user-display').innerText = "Hi " + name + "!";
+        document.getElementById('user-display').innerText = "Logging for " + name;
     }
 
     function toggleTimer() {
         const btn = document.getElementById('main-btn');
-        if (!running) {
-            startT = new Date();
-            running = true;
-            btn.innerText = "🛑 STOP";
+        if (!isRunning) {
+            startTime = new Date();
+            isRunning = true;
+            btn.innerText = "🛑 STOP & SAVE";
             btn.classList.add('btn-stop');
         } else {
-            const diff = Math.round((new Date() - startT) / 1000);
+            const endT = new Date();
+            const mins = Math.round((endT - startTime) / 60000); // Minutes
             const task = document.getElementById('task').value || "Activity";
-            save(user, task, diff);
-            location.reload(); // Refresh to reset UI
+            
+            saveLog({
+                user: currentUser,
+                task: task,
+                minutes: mins,
+                date: endT.toLocaleDateString(), // e.g. "3/27/2026"
+                timestamp: endT.getTime()
+            });
+            location.reload();
         }
     }
 
-    function save(u, t, s) {
-        let logs = JSON.parse(localStorage.getItem('fLogs')) || [];
-        logs.push({u, t, s, d: new Date().toLocaleTimeString()});
-        localStorage.setItem('fLogs', JSON.stringify(logs.slice(-10))); // Keep last 10
+    function saveLog(entry) {
+        let logs = JSON.parse(localStorage.getItem('family_v2')) || [];
+        logs.push(entry);
+        localStorage.setItem('family_v2', JSON.stringify(logs));
     }
 
-    function show() {
-        const logs = JSON.parse(localStorage.getItem('fLogs')) || [];
-        document.getElementById('history').innerHTML = logs.reverse().map(l => 
-            `<li class="log-item"><b>${l.u}</b>: ${l.t} (${l.s}s)</li>`
-        ).join('');
+    function displayGroupedLogs() {
+        const logs = JSON.parse(localStorage.getItem('family_v2')) || [];
+        if (logs.length === 0) return;
+
+        // Sort by timestamp (newest first)
+        logs.sort((a, b) => b.timestamp - a.timestamp);
+
+        // Group by Date
+        const grouped = logs.reduce((acc, log) => {
+            if (!acc[log.date]) acc[log.date] = {};
+            if (!acc[log.date][log.user]) acc[log.date][log.user] = [];
+            acc[log.date][log.user].push(log);
+            return acc;
+        }, {});
+
+        let html = "";
+        for (const date in grouped) {
+            html += `<div class="group-header">📅 ${date}</div>`;
+            for (const person in grouped[date]) {
+                html += `<div class="user-subgroup"><strong>👤 ${person}</strong>`;
+                grouped[date][person].forEach(item => {
+                    html += `
+                        <div class="log-entry">
+                            <span>${item.task}</span>
+                            <span>${item.minutes}m</span>
+                        </div>`;
+                });
+                html += `</div>`;
+            }
+        }
+        document.getElementById('history').innerHTML = html;
     }
-    show();
+
+    displayGroupedLogs();
 </script>
 </body>
 </html>
