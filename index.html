@@ -43,9 +43,7 @@
 <script>
     // --- CONFIGURATION ---
     const S_URL = "https://fkuiadidlrxvexmcrjvw.supabase.co";
-        // -- "https://fkuiadidlrxvexmcrjvw.supabase.co";
-    const S_KEY = "sb_publishable_ATi4yeU725N2mt6f08Rx8A_SqLi-9q0";
-       // -- "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrdWlhZGlkbHJ4dmV4bWNyanZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjE3MjEsImV4cCI6MjA5MDE5NzcyMX0.EZo407Z2496P7GX6xTbDp643bhHfbSI-gSp5rgUazQY";
+    const S_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrdWlhZGlkbHJ4dmV4bWNyanZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjE3MjEsImV4cCI6MjA5MDE5NzcyMX0.EZo407Z2496P7GX6xTbDp643bhHfbSI-gSp5rgUazQY";
     const USERS = {
         "Dad": { pass: "admin123", isAdmin: true },
         "Mom": { pass: "123", isAdmin: false },
@@ -98,7 +96,6 @@
     async function saveToCloud(entry) {
         document.getElementById('loading').classList.remove('hidden');
         await fetch(`${S_URL}/rest/v1/logs`, {
-        // await fetch(`${S_URL}/rest/v1/family_logs`, {
             method: 'POST',
             headers: { 'apikey': S_KEY, 'Authorization': `Bearer ${S_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(entry)
@@ -108,7 +105,6 @@
 
     async function fetchLogs() {
         const response = await fetch(`${S_URL}/rest/v1/logs?select=*`, {
-            //await fetch(`${S_URL}/rest/v1/family_logs?select=*`, {
             headers: { 'apikey': S_KEY, 'Authorization': `Bearer ${S_KEY}` }
         });
         let logs = await response.json();
