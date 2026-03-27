@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Family Time</title>
+    <style>
+        :root { --primary: #4a90e2; --stop: #ff4757; --bg: #f0f2f5; }
+        body { font-family: -apple-system, system-ui; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        h1 { color: #333; font-size: 24px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+        button { padding: 20px; border: none; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+        button:active { transform: scale(0.95); }
+        .btn-member { background: #e1e7ff; color: #4a90e2; }
+        .btn-action { background: var(--primary); color: white; width: 100%; margin-top: 10px; }
+        .btn-stop { background: var(--stop) !important; }
+        input { width: 90%; padding: 15px; margin: 10px 0; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; }
+        .log-item { background: #fff; margin-top: 10px; padding: 10px; border-radius: 10px; border-left: 5px solid var(--primary); text-align: left; font-size: 14px; list-style: none; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>👨‍👩‍👧‍👦 Family Logger</h1>
+    
+    <div id="setup-step" class="grid">
+        <button class="btn-member" onclick="start('Dad')">Dad</button>
+        <button class="btn-member" onclick="start('Mom')">Mom</button>
+        <button class="btn-member" onclick="start('Teen')">Teen</button>
+        <button class="btn-member" onclick="start('Kid')">Kid</button>
+    </div>
+
+    <div id="active-step" class="hidden">
+        <h2 id="user-display">Logging for...</h2>
+        <input type="text" id="task" placeholder="What are you doing?">
+        <button id="main-btn" class="btn-action" onclick="toggleTimer()">Start Timer</button>
+        <button class="btn-action" style="background:#888" onclick="location.reload()">Back</button>
+    </div>
+</div>
+
+<ul id="history" style="padding:0; width:100%; max-width:400px;"></ul>
+
+<script>
+    let user = "", startT, running = false;
+
+    function start(name) {
+        user = name;
+        document.getElementById('setup-step').classList.add('hidden');
+        document.getElementById('active-step').classList.remove('hidden');
+        document.getElementById('user-display').innerText = "Hi " + name + "!";
+    }
+
+    function toggleTimer() {
+        const btn = document.getElementById('main-btn');
+        if (!running) {
+            startT = new Date();
+            running = true;
+            btn.innerText = "🛑 STOP";
+            btn.classList.add('btn-stop');
+        } else {
+            const diff = Math.round((new Date() - startT) / 1000);
+            const task = document.getElementById('task').value || "Activity";
+            save(user, task, diff);
+            location.reload(); // Refresh to reset UI
+        }
+    }
+
+    function save(u, t, s) {
+        let logs = JSON.parse(localStorage.getItem('fLogs')) || [];
+        logs.push({u, t, s, d: new Date().toLocaleTimeString()});
+        localStorage.setItem('fLogs', JSON.stringify(logs.slice(-10))); // Keep last 10
+    }
+
+    function show() {
+        const logs = JSON.parse(localStorage.getItem('fLogs')) || [];
+        document.getElementById('history').innerHTML = logs.reverse().map(l => 
+            `<li class="log-item"><b>${l.u}</b>: ${l.t} (${l.s}s)</li>`
+        ).join('');
+    }
+    show();
+</script>
+</body>
+</html>
