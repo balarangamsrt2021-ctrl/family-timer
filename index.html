@@ -5,28 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Family Time Pro</title>
     <style>
-        :root { --primary: #4a90e2; --stop: #ff4757; --bg: #f8f9fa; }
+        :root { --primary: #4a90e2; --stop: #ff4757; --bg: #f4f7f9; --success: #2ecc71; }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
-        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 450px; box-sizing: border-box; }
-        h1 { color: #333; font-size: 22px; margin-bottom: 20px; }
+        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); width: 100%; max-width: 450px; box-sizing: border-box; transition: all 0.3s; }
+        
+        /* Glowing effect when timer is running */
+        .timer-active { border: 3px solid var(--primary); box-shadow: 0 0 15px rgba(74, 144, 226, 0.5); }
+
+        h1 { color: #333; font-size: 22px; margin-bottom: 20px; text-align: center; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        button { padding: 18px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .btn-member { background: #f0f4ff; color: var(--primary); border: 1px solid #d0d9ff; }
+        button { padding: 18px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .btn-member { background: #eef2ff; color: var(--primary); border: 1px solid #d0d9ff; }
         .btn-action { background: var(--primary); color: white; width: 100%; margin-top: 15px; }
-        .btn-stop { background: var(--stop) !important; }
+        .btn-stop { background: var(--stop) !important; animation: pulse 1.5s infinite; }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+
         input { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
         
-        /* Grouping Styles */
-        .group-header { background: #eee; padding: 8px 15px; border-radius: 8px; margin-top: 20px; font-weight: bold; color: #555; text-align: left; }
-        .user-subgroup { margin-left: 10px; border-left: 3px solid var(--primary); padding-left: 10px; margin-top: 10px; text-align: left; }
-        .log-entry { font-size: 14px; padding: 5px 0; color: #444; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; }
+        .group-header { background: #34495e; color: white; padding: 10px 15px; border-radius: 8px; margin-top: 25px; font-weight: bold; text-align: left; }
+        .user-section { background: white; margin-top: 10px; padding: 15px; border-radius: 12px; border: 1px solid #eee; text-align: left; }
+        .user-stats { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; margin-bottom: 10px; }
+        .total-badge { background: var(--success); color: white; padding: 2px 10px; border-radius: 20px; font-size: 14px; }
+        
+        .log-entry { font-size: 14px; padding: 8px 0; color: #555; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #fafafa; }
+        .delete-btn { color: #ccc; font-size: 18px; padding: 5px 10px; cursor: pointer; }
+        .delete-btn:hover { color: var(--stop); }
         .hidden { display: none; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h1>👨‍👩‍👧‍👦 Family Time Logger</h1>
+<div id="main-card" class="card">
+    <h1>👨‍👩‍👧‍👦 Family Logger</h1>
     
     <div id="setup-step" class="grid">
         <button class="btn-member" onclick="start('Dad')">Dad</button>
@@ -37,7 +48,7 @@
 
     <div id="active-step" class="hidden">
         <h2 id="user-display">Hi!</h2>
-        <input type="text" id="task" placeholder="What activity? (e.g. Reading)">
+        <input type="text" id="task" placeholder="What are you doing?">
         <button id="main-btn" class="btn-action" onclick="toggleTimer()">Start Timer</button>
         <button class="btn-action" style="background:#888" onclick="location.reload()">Cancel</button>
     </div>
@@ -57,21 +68,24 @@
 
     function toggleTimer() {
         const btn = document.getElementById('main-btn');
+        const card = document.getElementById('main-card');
         if (!isRunning) {
             startTime = new Date();
             isRunning = true;
             btn.innerText = "🛑 STOP & SAVE";
             btn.classList.add('btn-stop');
+            card.classList.add('timer-active');
         } else {
             const endT = new Date();
-            const mins = Math.round((endT - startTime) / 60000); // Minutes
+            const mins = Math.max(1, Math.round((endT - startTime) / 60000)); 
             const task = document.getElementById('task').value || "Activity";
             
             saveLog({
+                id: Date.now(), // Unique ID for deleting
                 user: currentUser,
                 task: task,
                 minutes: mins,
-                date: endT.toLocaleDateString(), // e.g. "3/27/2026"
+                date: endT.toLocaleDateString(),
                 timestamp: endT.getTime()
             });
             location.reload();
@@ -79,23 +93,35 @@
     }
 
     function saveLog(entry) {
-        let logs = JSON.parse(localStorage.getItem('family_v2')) || [];
+        let logs = JSON.parse(localStorage.getItem('family_v3')) || [];
         logs.push(entry);
-        localStorage.setItem('family_v2', JSON.stringify(logs));
+        localStorage.setItem('family_v3', JSON.stringify(logs));
+    }
+
+    function deleteLog(id) {
+        if(confirm("Delete this entry?")) {
+            let logs = JSON.parse(localStorage.getItem('family_v3')) || [];
+            logs = logs.filter(log => log.id !== id);
+            localStorage.setItem('family_v3', JSON.stringify(logs));
+            displayGroupedLogs();
+        }
     }
 
     function displayGroupedLogs() {
-        const logs = JSON.parse(localStorage.getItem('family_v2')) || [];
-        if (logs.length === 0) return;
+        const logs = JSON.parse(localStorage.getItem('family_v3')) || [];
+        if (logs.length === 0) {
+            document.getElementById('history').innerHTML = "";
+            return;
+        }
 
-        // Sort by timestamp (newest first)
         logs.sort((a, b) => b.timestamp - a.timestamp);
 
-        // Group by Date
+        // Grouping logic
         const grouped = logs.reduce((acc, log) => {
             if (!acc[log.date]) acc[log.date] = {};
-            if (!acc[log.date][log.user]) acc[log.date][log.user] = [];
-            acc[log.date][log.user].push(log);
+            if (!acc[log.date][log.user]) acc[log.date][log.user] = { items: [], total: 0 };
+            acc[log.date][log.user].items.push(log);
+            acc[log.date][log.user].total += log.minutes;
             return acc;
         }, {});
 
@@ -103,12 +129,18 @@
         for (const date in grouped) {
             html += `<div class="group-header">📅 ${date}</div>`;
             for (const person in grouped[date]) {
-                html += `<div class="user-subgroup"><strong>👤 ${person}</strong>`;
-                grouped[date][person].forEach(item => {
+                const data = grouped[date][person];
+                html += `
+                    <div class="user-section">
+                        <div class="user-stats">
+                            <strong>👤 ${person}</strong>
+                            <span class="total-badge">${data.total} mins total</span>
+                        </div>`;
+                data.items.forEach(item => {
                     html += `
                         <div class="log-entry">
-                            <span>${item.task}</span>
-                            <span>${item.minutes}m</span>
+                            <span>${item.task} (${item.minutes}m)</span>
+                            <span class="delete-btn" onclick="deleteLog(${item.id})">×</span>
                         </div>`;
                 });
                 html += `</div>`;
