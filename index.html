@@ -3,51 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Family Timer Secure</title>
+    <title>Family Cloud Timer</title>
     <style>
-        :root { --primary: #4a90e2; --stop: #ff4757; --bg: #f4f7f9; --success: #2ecc71; --admin: #8e44ad; }
+        :root { --primary: #4a90e2; --stop: #ff4757; --bg: #f4f7f9; --admin: #8e44ad; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
-        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; }
-        .hidden { display: none !important; }
-        
-        /* UI Elements */
+        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; margin-bottom: 20px; }
         input { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
         button { width: 100%; padding: 15px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
         .btn-blue { background: var(--primary); color: white; }
-        .btn-stop { background: var(--stop); color: white; }
-        
-        /* Logs */
-        .group-header { background: #34495e; color: white; padding: 10px; border-radius: 8px; margin-top: 20px; text-align: left; }
-        .user-section { background: white; margin-top: 10px; padding: 15px; border-radius: 12px; border: 1px solid #eee; text-align: left; }
-        .log-entry { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; font-size: 14px; }
-        .admin-badge { background: var(--admin); color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 10px; }
+        .btn-stop { background: var(--stop); color: white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        .group-header { background: #34495e; color: white; padding: 10px; border-radius: 8px; margin-top: 20px; text-align: left; width: 100%; max-width: 400px; }
+        .user-section { background: white; margin-top: 10px; padding: 15px; border-radius: 12px; border: 1px solid #eee; text-align: left; width: 100%; max-width: 400px; box-sizing: border-box; }
+        .log-entry { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+        .hidden { display: none !important; }
+        .loader { color: var(--primary); font-weight: bold; padding: 20px; }
     </style>
 </head>
 <body>
 
 <div id="login-screen" class="card">
-    <h1>🔐 Family Login</h1>
-    <input type="text" id="login-user" placeholder="Name (e.g. Dad, Kid)">
+    <h1>🔐 Family Cloud Login</h1>
+    <input type="text" id="login-user" placeholder="Name (Dad, Mom, Teen, Kid)">
     <input type="password" id="login-pass" placeholder="Password">
     <button class="btn-blue" onclick="attemptLogin()">Login</button>
-    <p style="font-size: 12px; color: #888;">Default: Passwords are just "123"</p>
 </div>
 
 <div id="app-screen" class="hidden" style="width: 100%; max-width: 400px;">
-    <div class="card" id="main-timer-card">
-        <h2 id="welcome-msg">Welcome</h2>
-        <div id="timer-ui">
-            <input type="text" id="task" placeholder="What are you doing?">
-            <button id="main-btn" class="btn-blue" onclick="toggleTimer()">Start Timer</button>
-        </div>
-        <button style="background: #eee; color: #666;" onclick="logout()">Logout</button>
+    <div class="card">
+        <h2 id="welcome-msg">Hi!</h2>
+        <input type="text" id="task" placeholder="What activity?">
+        <button id="main-btn" class="btn-blue" onclick="toggleTimer()">Start Timer</button>
+        <button style="background: #eee; margin-top: 20px;" onclick="logout()">Logout</button>
     </div>
-
+    <div id="loading" class="loader hidden">Updating from Cloud...</div>
     <div id="history"></div>
 </div>
 
 <script>
-    // 1. Simple User Database
+    // --- CONFIGURATION ---
+    const S_URL = "YOUR_SUPABASE_URL_HERE"; 
+    const S_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
     const USERS = {
         "Dad": { pass: "admin123", isAdmin: true },
         "Mom": { pass: "123", isAdmin: false },
@@ -58,84 +54,75 @@
     let currentUser = JSON.parse(sessionStorage.getItem('loggedUser'));
     let startTime, isRunning = false;
 
-    // 2. Login Logic
     function attemptLogin() {
         const u = document.getElementById('login-user').value;
         const p = document.getElementById('login-pass').value;
-
         if (USERS[u] && USERS[u].pass === p) {
             currentUser = { name: u, ...USERS[u] };
             sessionStorage.setItem('loggedUser', JSON.stringify(currentUser));
             initApp();
-        } else {
-            alert("Wrong name or password!");
-        }
+        } else { alert("Access Denied"); }
     }
 
-    function logout() {
-        sessionStorage.clear();
-        location.reload();
-    }
+    function logout() { sessionStorage.clear(); location.reload(); }
 
-    // 3. App Initialization
     function initApp() {
-        if (!currentUser) return;
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('app-screen').classList.remove('hidden');
-        document.getElementById('welcome-msg').innerHTML = 
-            `Hi ${currentUser.name}${currentUser.isAdmin ? '<span class="admin-badge">Admin</span>' : ''}`;
-        displayLogs();
+        document.getElementById('welcome-msg').innerText = "Logged in as " + currentUser.name;
+        fetchLogs();
     }
 
-    // 4. Timer Logic
     function toggleTimer() {
         const btn = document.getElementById('main-btn');
         if (!isRunning) {
             startTime = new Date();
             isRunning = true;
-            btn.innerText = "🛑 STOP";
+            btn.innerText = "🛑 STOP & SYNC";
             btn.className = "btn-stop";
         } else {
             const mins = Math.max(1, Math.round((new Date() - startTime) / 60000));
-            saveLog({
-                id: Date.now(),
+            saveToCloud({
                 user: currentUser.name,
                 task: document.getElementById('task').value || "Activity",
                 minutes: mins,
                 date: new Date().toLocaleDateString(),
                 timestamp: Date.now()
             });
-            location.reload();
         }
     }
 
-    function saveLog(entry) {
-        let logs = JSON.parse(localStorage.getItem('family_v4')) || [];
-        logs.push(entry);
-        localStorage.setItem('family_v4', JSON.stringify(logs));
+    // --- CLOUD FUNCTIONS ---
+    async function saveToCloud(entry) {
+        document.getElementById('loading').classList.remove('hidden');
+        await fetch(`${S_URL}/rest/v1/family_logs`, {
+            method: 'POST',
+            headers: { 'apikey': S_KEY, 'Authorization': `Bearer ${S_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(entry)
+        });
+        location.reload();
     }
 
-    function deleteLog(id) {
-        let logs = JSON.parse(localStorage.getItem('family_v4')) || [];
-        logs = logs.filter(l => l.id !== id);
-        localStorage.setItem('family_v4', JSON.stringify(logs));
-        displayLogs();
-    }
-
-    // 5. Grouped Display (Admin vs User)
-    function displayLogs() {
-        let logs = JSON.parse(localStorage.getItem('family_v4')) || [];
+    async function fetchLogs() {
+        const response = await fetch(`${S_URL}/rest/v1/family_logs?select=*`, {
+            headers: { 'apikey': S_KEY, 'Authorization': `Bearer ${S_KEY}` }
+        });
+        let logs = await response.json();
         
-        // IF NOT ADMIN: Only show your own logs
+        // Security: Filter if not admin
         if (!currentUser.isAdmin) {
             logs = logs.filter(l => l.user === currentUser.name);
         }
+        renderLogs(logs);
+    }
 
+    function renderLogs(logs) {
         logs.sort((a, b) => b.timestamp - a.timestamp);
         const grouped = logs.reduce((acc, log) => {
             if (!acc[log.date]) acc[log.date] = {};
-            if (!acc[log.date][log.user]) acc[log.date][log.user] = [];
-            acc[log.date][log.user].push(log);
+            if (!acc[log.date][log.user]) acc[log.date][log.user] = { items: [], total: 0 };
+            acc[log.date][log.user].items.push(log);
+            acc[log.date][log.user].total += log.minutes;
             return acc;
         }, {});
 
@@ -143,12 +130,9 @@
         for (const date in grouped) {
             html += `<div class="group-header">📅 ${date}</div>`;
             for (const person in grouped[date]) {
-                html += `<div class="user-section"><strong>👤 ${person}</strong>`;
-                grouped[date][person].forEach(item => {
-                    html += `<div class="log-entry">
-                        <span>${item.task} (${item.minutes}m)</span>
-                        <span style="color:red; cursor:pointer" onclick="deleteLog(${item.id})">×</span>
-                    </div>`;
+                html += `<div class="user-section"><strong>👤 ${person}</strong> (${grouped[date][person].total}m)`;
+                grouped[date][person].items.forEach(item => {
+                    html += `<div class="log-entry"><span>${item.task}</span><span>${item.minutes}m</span></div>`;
                 });
                 html += `</div>`;
             }
@@ -156,7 +140,6 @@
         document.getElementById('history').innerHTML = html;
     }
 
-    // Auto-load if already logged in
     if (currentUser) initApp();
 </script>
 </body>
