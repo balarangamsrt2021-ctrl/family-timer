@@ -97,7 +97,8 @@
     // --- CLOUD FUNCTIONS ---
     async function saveToCloud(entry) {
         document.getElementById('loading').classList.remove('hidden');
-        await fetch(`${S_URL}/rest/v1/family_logs`, {
+        await fetch(`${S_URL}/rest/v1/familytimer/logs`, {
+        // await fetch(`${S_URL}/rest/v1/family_logs`, {
             method: 'POST',
             headers: { 'apikey': S_KEY, 'Authorization': `Bearer ${S_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(entry)
@@ -106,7 +107,8 @@
     }
 
     async function fetchLogs() {
-        const response = await fetch(`${S_URL}/rest/v1/family_logs?select=*`, {
+        const response = await fetch(`${S_URL}/rest/v1/familytimer/logs?select=*`, {
+            //await fetch(`${S_URL}/rest/v1/family_logs?select=*`, {
             headers: { 'apikey': S_KEY, 'Authorization': `Bearer ${S_KEY}` }
         });
         let logs = await response.json();
