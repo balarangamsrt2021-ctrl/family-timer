@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Family Cloud Timer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        :root { --primary: #4a90e2; --stop: #ff4757; --bg: #f4f7f9; --admin: #8e44ad; --pdf: #27ae60; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; margin-bottom: 20px; }
+        input { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .btn-blue { background: var(--primary); color: white; }
+        .btn-stop { background: var(--stop); color: white; animation: pulse 1.5s infinite; }
+        .btn-pdf { background: var(--pdf); color: white; margin-bottom: 20px; }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* Grouping Styles for App and PDF */
+        .group-header { background: #34495e; color: white; padding: 10px; border-radius: 8px; margin-top: 20px; text-align: left; width: 100%; max-width: 400px; }
+        .user-section { background: white; margin-top: 10px; padding: 15px; border-radius: 12px; border: 1px solid #eee; text-align: left; width: 100%; max-width: 400px; box-sizing: border-box; }
+        .log-entry { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+        .hidden { display: none !important; }
+        
+        /* PDF specific styling to make the printout look professional */
+        #pdf-content { width: 100%; display: flex; flex-direction: column; align-items: center; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen" class="card">
+    <h1>🔐 Family Cloud Login</h1>
+    <input type="text" id="login-user" placeholder="Name (Dad, Mom, Teen, Kid)">
+    <input type="password" id="login-pass" placeholder="Password">
+    <button class="btn-blue" onclick="attemptLogin()">Login</button>
+</div>
+
+<div id="app-screen" class="hidden" style="width: 100%; max-width: 400px;">
+    <div class="card">
+        <h2 id="welcome-msg">Hi!</h2>
+        <input type="text" id="task" placeholder="What activity?">
+        <button id="main-btn" class="btn-blue" onclick="toggleTimer()">Start Timer</button>
+        <button style="background: #eee; margin-top: 20px;" onclick="logout()">Logout</button>
+    </div>
+
+    <button id="pdf-btn" class="btn-pdf hidden" onclick="exportToPDF()">📄 Download PDF Report</button>
+    
+    <div id="pdf-content">
+        <div id="history"></div>
+    </div>
+</div>
+
+<script>
+    // --- CONFIGURATION ---
+    const S_URL = "YOUR_SUPABASE_URL_HERE"; 
+    const S_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
+    const USERS = {
+        "Dad": { pass: "admin123", isAdmin: true },
+        "Mom": { pass: "123", isAdmin: false },
+        "Teen": { pass: "123", isAdmin: false },
+        "Kid": { pass: "123", isAdmin: false }
+    };
+
+    let currentUser = JSON.parse(sessionStorage.getItem('loggedUser'));
+    let startTime, isRunning = false;
+
+    function attemptLogin() {
+        const u = document.getElementById('login-user').value;
+        const p = document.getElementById('login-pass').value;
+        if (USERS[u] && USERS[u].pass === p) {
+            currentUser = { name: u, ...USERS[u] };
+            sessionStorage.setItem('loggedUser', JSON.stringify(currentUser));
+            initApp();
+        } else { alert("Access Denied"); }
+    }
+
+    function logout() { sessionStorage.clear(); location.reload(); }
+
+    function initApp() {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('app-screen').classList.remove('hidden');
+        document.getElementById('welcome-msg').innerText = "Logged in as " + currentUser.name;
+        fetchLogs();
+    }
+
+    // --- PDF EXPORT LOGIC ---
+    function exportToPDF() {
+        const element = document.getElementById('pdf-content');
+        const opt = {
+            margin:       [10, 10, 10, 10],
+            filename:     `${currentUser.name}_Time_Report.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // New Step: Temporarily hide things we don't want in the PDF (like delete buttons)
+        html2pdf().set(opt).from(element).save();
+    }
+
+    function toggleTimer() {
+        const btn = document.getElementById('main-btn');
+        if (!isRunning) {
+            startTime = new Date();
+            isRunning = true;
+            btn.innerText = "🛑 STOP & SYNC";
+            btn.className = "btn-stop";
+        } else {
+            const mins = Math.max(1, Math.round((new Date() - startTime) / 60000));
+            saveToCloud({
+                user: currentUser.name,
+                task: document.getElementById('task').value || "Activity",
+                minutes: mins,
+                date: new Date().toLocaleDateString(),
+                timestamp: Date.now()
+            });
+        }
+    }
+
+    async function saveToCloud(entry) {
+        await fetch(`${S_URL}/rest/v1/family_logs`, {
+            method: 'POST',
+            headers: { 'apikey': S_KEY, 'Authorization': `Bearer ${S_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(entry)
+        });
+        location.reload();
+    }
+
+    async function fetchLogs() {
+        const response = await fetch(`${S_URL}/rest/v1/family_logs?select=*`, {
+            headers: { 'apikey': S_KEY, 'Authorization': `Bearer ${S_KEY}` }
+        });
+        let logs = await response.json();
+        
+        if (!currentUser.isAdmin) {
+            logs = logs.filter(l => l.user === currentUser.name);
+        }
+
+        if (logs.length > 0) {
+            document.getElementById('pdf-btn').classList.remove('hidden');
+            renderLogs(logs);
+        }
+    }
+
+    function renderLogs(logs) {
+        logs.sort((a, b) => b.timestamp - a.timestamp);
+        const grouped = logs.reduce((acc, log) => {
+            if (!acc[log.date]) acc[log.date] = {};
+            if (!acc[log.date][log.user]) acc[log.date][log.user] = { items: [], total: 0 };
+            acc[log.date][log.user].items.push(log);
+            acc[log.date][log.user].total += log.minutes;
+            return acc;
+        }, {});
+
+        let html = "";
+        for (const date in grouped) {
+            html += `<div class="group-header">📅 ${date}</div>`;
+            for (const person in grouped[date]) {
+                html += `<div class="user-section"><strong>👤 ${person}</strong> (${grouped[date][person].total}m)`;
+                grouped[date][person].items.forEach(item => {
+                    html += `<div class="log-entry"><span>${item.task}</span><span>${item.minutes}m</span></div>`;
+                });
+                html += `</div>`;
+            }
+        }
+        document.getElementById('history').innerHTML = html;
+    }
+
+    if (currentUser) initApp();
+</script>
+</body>
+</html>
